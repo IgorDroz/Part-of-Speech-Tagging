@@ -1,29 +1,28 @@
 from scipy.sparse import csr_matrix
 from itertools import islice
+import re
 
 class feature_builder():
 
 	def __init__(self, file_statistics, threshold):
 		self._file_statistics = file_statistics  # statistics class, for each featue gives empirical counts
 		self._threshold = threshold                    # feature count threshold - empirical count must be higher than this
-		self._num_total_features = 0                     # Total number of features accumulated
-		self._num_unigram = 0
-		self._num_suffix_tag = 0
-		self._num_prefix_tag = 0
-		self._num_trigram_tags = 0
-		self._num_bigram_tags = 0
-		self._num_unigram_tags = 0
-		self._curr_index = 0
-		self._num_capital_letter_tags = 0
-		self._num_capital_letter_word_tags = 0
-		self._all_capital_letters_index = 0
-		self._number_index = 0
-		self._num_next_word_tag = 0
-		self._num_prev_word_tag = 0
-		self._TO_index = 0
-		self._common_adj_suffix_index = 0
-		self._plural_index = 0
-		self._plural_and_capital_index = 0
+		self.initiallize_variables()
+		self.build_features()
+
+		self.create_history_dict()
+		self._sparse_features_matrix = self.create_features_sparse_matrix(self._histories_dict)
+		self.create_history_all_pos_tags()
+
+		for history_dict in self._all_tag_histories_list:
+			self._all_possible_sparse_matrix.append(self.create_features_sparse_matrix(history_dict))
+
+		for matrix in self._all_possible_sparse_matrix:
+			self._all_possible_sparse_matrix_trans.append(matrix.transpose())
+
+
+	def initiallize_variables(self):
+		self._num_total_features = 0
 		self._all_possible_sparse_matrix = []
 		self._all_possible_sparse_matrix_trans = []
 
@@ -39,35 +38,25 @@ class feature_builder():
 		self._next_word_tags_dict = {}
 		self._prev_word_tags_dict = {}
 
-		self.define_unigram_features_indices()
-		self.define_unigram_suffix_features_indices()
-		self.define_unigram_prefix_features_indices()
-		self.define_trigram_tags_features_indices()
-		self.define_bigram_tags_features_indices()
-		self.define_unigram_tags_features_indices()
+	def build_features(self):
+		self.define_f100()
+		self.define_f101()
+		self.define_f102()
+		self.define_f103()
+		self.define_f104()
+		self.define_f105()
+		self.define_f106()
+		self.define_f107()
 		self.define_first_capital_letter_tag_features_indices()
-		self.define_capital_letter_word_tag_features_indices()
-		self.define_next_word_tag_features_indices()
-		self.define_prev_word_tag_features_indices()
+		self.define_company_feature_index()
 		self.define_all_capital_letters_feature_index()
 		self.define_is_number_feature_index()
-		self.define_TO_feature_index()
+		self.define_title_feature_index()
 		self.define_common_adj_suffix_feature_index()
 		self.define_plural_feature_index()
 		self.define_plural_and_capital_feature_index()
 
-		self.create_history_dict()
-		self._sparse_features_matrix = self.create_features_sparse_matrix(self._histories_dict)
-		self.create_history_all_pos_tags()
-		for history_dict in self._all_tag_histories_list:
-			self._all_possible_sparse_matrix.append(self.create_features_sparse_matrix(history_dict))
-
-		for matrix in self._all_possible_sparse_matrix:
-			self._all_possible_sparse_matrix_trans.append(matrix.transpose())
-
-
-
-	def define_unigram_features_indices(self):
+	def define_f100(self):
 		"""
 			Extract out of text all word/tag pairs
 			:param file_path: full path of the file to read
@@ -80,12 +69,10 @@ class feature_builder():
 				for idx in range(len(splited_words)):
 					word, tag = splited_words[idx].split('_')
 					if (((word, tag) not in self._words_tags_dict.keys()) and (self._file_statistics.words_tags_count_dict[(word, tag)] >= self._threshold)):
-						self._words_tags_dict[(word, tag)] = self._curr_index
-						self._num_unigram += 1
-						self._curr_index += 1
-			self._num_total_features += self._num_unigram
+						self._words_tags_dict[(word, tag)] = self._num_total_features
+						self._num_total_features += 1
 
-	def define_next_word_tag_features_indices(self):
+	def define_f106(self):
 		"""
 			Extract out of text all word/tag pairs
 			:param file_path: full path of the file to read
@@ -102,13 +89,11 @@ class feature_builder():
 					else:
 						next_word = splited_words[idx + 1]
 					if (((next_word, tag) not in self._next_word_tags_dict.keys()) and (self._file_statistics.next_word_tags_count_dict[(next_word, tag)] >= self._threshold)):
-						self._next_word_tags_dict[(next_word, tag)] = self._curr_index
-						self._num_next_word_tag += 1
-						self._curr_index += 1
-			self._num_total_features += self._num_next_word_tag
+						self._next_word_tags_dict[(next_word, tag)] = self._num_total_features
+						self._num_total_features += 1
 
 
-	def define_prev_word_tag_features_indices(self):
+	def define_f107(self):
 		"""
 			Extract out of text all word/tag pairs
 			:param file_path: full path of the file to read
@@ -125,12 +110,10 @@ class feature_builder():
 					else:
 						prev_word = splited_words[idx - 1]
 					if (((prev_word, tag) not in self._prev_word_tags_dict.keys()) and (self._file_statistics.prev_word_tags_count_dict[(prev_word, tag)] >= self._threshold)):
-						self._prev_word_tags_dict[(prev_word, tag)] = self._curr_index
-						self._num_prev_word_tag += 1
-						self._curr_index += 1
-			self._num_total_features += self._num_prev_word_tag
+						self._prev_word_tags_dict[(prev_word, tag)] = self._num_total_features
+						self._num_total_features += 1
 
-	def define_unigram_suffix_features_indices(self):
+	def define_f101(self):
 		"""
 		Extract out of text all suffixes/tag pairs from length <=4
 		:param file_path: full path of file to read
@@ -147,12 +130,10 @@ class feature_builder():
 							break
 						suffix = word[-suffix_length:len(word)]
 						if (((suffix, tag) not in self._suffixes_tags_dict.keys()) and (self._file_statistics.suffixes_tags_count_dict[(suffix, tag)] >= self._threshold)):
-							self._suffixes_tags_dict[(suffix, tag)] = self._curr_index
-							self._num_suffix_tag += 1
-							self._curr_index += 1
-			self._num_total_features += self._num_suffix_tag
+							self._suffixes_tags_dict[(suffix, tag)] = self._num_total_features
+							self._num_total_features += 1
 
-	def define_unigram_prefix_features_indices(self):
+	def define_f102(self):
 		"""
 		Extract out of text all prefixes/tag pairs from length <=4
 		:param file_path: full path of file to read
@@ -169,12 +150,10 @@ class feature_builder():
 							break
 						prefix = word[0:prefix_length]
 						if (((prefix, tag) not in self._prefixes_tags_dict.keys()) and (self._file_statistics.prefixes_tags_count_dict[(prefix, tag)] >= self._threshold)):
-							self._prefixes_tags_dict[(prefix, tag)] = self._curr_index
-							self._num_prefix_tag += 1
-							self._curr_index += 1
-			self._num_total_features += self._num_prefix_tag
+							self._prefixes_tags_dict[(prefix, tag)] = self._num_total_features
+							self._num_total_features += 1
 
-	def define_trigram_tags_features_indices(self):
+	def define_f103(self):
 		"""
 		Extract out of text all three tag pairs
 		:param file_path: full path of file to read
@@ -190,27 +169,23 @@ class feature_builder():
 						prev_word, prev_tag = splited_words[idx - 1].split('_')
 						prev_x2_word, prev_x2_tag = splited_words[idx - 2].split('_')
 						if (((prev_x2_tag, prev_tag, tag) not in self._trigram_tag_dict.keys()) and (self._file_statistics.trigram_tags_count_dict[(prev_x2_tag, prev_tag, tag)] >= self._threshold)):
-							self._trigram_tag_dict[(prev_x2_tag, prev_tag, tag)] = self._curr_index
-							self._num_trigram_tags += 1
-							self._curr_index += 1
+							self._trigram_tag_dict[(prev_x2_tag, prev_tag, tag)] = self._num_total_features
+							self._num_total_features += 1
 					elif idx == 1:
 						prev_word, prev_tag = splited_words[idx - 1].split('_')
 						prev_x2_word, prev_x2_tag = '*', '*'
 						if (((prev_x2_tag, prev_tag, tag) not in self._trigram_tag_dict.keys()) and (self._file_statistics.trigram_tags_count_dict[(prev_x2_tag, prev_tag, tag)] >= self._threshold)):
-							self._trigram_tag_dict[(prev_x2_tag, prev_tag, tag)] = self._curr_index
-							self._num_trigram_tags += 1
-							self._curr_index += 1
+							self._trigram_tag_dict[(prev_x2_tag, prev_tag, tag)] = self._num_total_features
+							self._num_total_features += 1
 					elif idx == 0:
 						prev_word, prev_tag = '*','*'
 						prev_x2_word, prev_x2_tag = '*', '*'
 						if (((prev_x2_tag, prev_tag, tag) not in self._trigram_tag_dict.keys()) and (self._file_statistics.trigram_tags_count_dict[(prev_x2_tag, prev_tag, tag)] >= self._threshold)):
-							self._trigram_tag_dict[(prev_x2_tag, prev_tag, tag)] = self._curr_index
-							self._num_trigram_tags += 1
-							self._curr_index += 1
-			self._num_total_features += self._num_trigram_tags
+							self._trigram_tag_dict[(prev_x2_tag, prev_tag, tag)] = self._num_total_features
+							self._num_total_features += 1
 
 
-	def define_bigram_tags_features_indices(self):
+	def define_f104(self):
 		"""
 		Extract out of text all two tag pairs
 		:param file_path: full path of file to read
@@ -225,19 +200,16 @@ class feature_builder():
 					if idx > 0:
 						prev_word, prev_tag = splited_words[idx - 1].split('_')
 						if (((prev_tag, tag) not in self._bigram_tag_dict.keys()) and (self._file_statistics.bigram_tags_count_dict[(prev_tag, tag)] >= self._threshold)):
-							self._bigram_tag_dict[(prev_tag, tag)] = self._curr_index
-							self._num_bigram_tags += 1
-							self._curr_index += 1
+							self._bigram_tag_dict[(prev_tag, tag)] = self._num_total_features
+							self._num_total_features += 1
 					else:
 						prev_word, prev_tag = '*', '*'
 						if (((prev_tag, tag) not in self._bigram_tag_dict.keys()) and (self._file_statistics.bigram_tags_count_dict[(prev_tag, tag)] >= self._threshold)):
-							self._bigram_tag_dict[(prev_tag, tag)] = self._curr_index
-							self._num_bigram_tags += 1
-							self._curr_index += 1
-			self._num_total_features += self._num_bigram_tags
+							self._bigram_tag_dict[(prev_tag, tag)] = self._num_total_features
+							self._num_total_features += 1
 
 
-	def define_unigram_tags_features_indices(self):
+	def define_f105(self):
 		"""
 		Extract out of text all one tags
 		:param file_path: full path of file to read
@@ -250,10 +222,8 @@ class feature_builder():
 				for idx in range(len(splited_words)):
 					word, tag = splited_words[idx].split('_')
 					if (((tag) not in self._unigram_tag_dict.keys()) and (self._file_statistics.unigram_tags_count_dict[(tag)] >= self._threshold)):
-						self._unigram_tag_dict[(tag)] = self._curr_index
-						self._num_unigram_tags += 1
-						self._curr_index += 1
-			self._num_total_features += self._num_unigram_tags
+						self._unigram_tag_dict[(tag)] = self._num_total_features
+						self._num_total_features += 1
 
 	def define_first_capital_letter_tag_features_indices(self):
 		with open(self._file_statistics.file_path) as f:
@@ -264,53 +234,35 @@ class feature_builder():
 					word, tag = splited_words[idx].split('_')
 					if word[0].isupper():
 						if (((word[0], tag) not in self._first_capital_letter_tags_dict.keys()) and (self._file_statistics.capital_letter_tags_count_dict[(word[0], tag)] >= self._threshold)):
-							self._first_capital_letter_tags_dict[(word[0], tag)] = self._curr_index
-							self._num_capital_letter_tags += 1
-							self._curr_index += 1
-			self._num_total_features += self._num_capital_letter_tags
+							self._first_capital_letter_tags_dict[(word[0], tag)] = self._num_total_features
+							self._num_total_features += 1
 
-	def define_capital_letter_word_tag_features_indices(self):
-		with open(self._file_statistics.file_path) as f:
-			for line in f:
-				splited_words = line.split()
-				del splited_words[-1]
-				for idx in range(len(splited_words)):
-					word, tag = splited_words[idx].split('_')
-					if sum([1 for letter in word if letter.isupper()]):
-						if (((word, tag) not in self._capital_letter_word_tags_dict.keys()) and (self._file_statistics.capital_word_tags_count_dict[(word, tag)] >= self._threshold)):
-							self._capital_letter_word_tags_dict[(word, tag)] = self._curr_index
-							self._num_capital_letter_word_tags += 1
-							self._curr_index += 1
-			self._num_total_features += self._num_capital_letter_word_tags
-
-	def define_all_capital_letters_feature_index(self):
-		self._all_capital_letters_index = self._curr_index
-		self._curr_index += 1
+	def define_company_feature_index(self):
+		self._company_feature_index = self._num_total_features
 		self._num_total_features += 1
 
-	def define_TO_feature_index(self):
-		self._TO_index = self._curr_index
-		self._curr_index += 1
+	def define_all_capital_letters_feature_index(self):
+		self._all_capital_letters_index = self._num_total_features
+		self._num_total_features += 1
+
+	def define_title_feature_index(self):
+		self._title_index = self._num_total_features
 		self._num_total_features += 1
 
 	def define_common_adj_suffix_feature_index(self):
-		self._common_adj_suffix_index = self._curr_index
-		self._curr_index += 1
+		self._common_adj_suffix_index = self._num_total_features
 		self._num_total_features += 1
 
 	def define_plural_feature_index(self):
-		self._plural_index = self._curr_index
-		self._curr_index += 1
+		self._plural_index = self._num_total_features
 		self._num_total_features += 1
 
 	def define_plural_and_capital_feature_index(self):
-		self._plural_and_capital_index = self._curr_index
-		self._curr_index += 1
+		self._plural_and_capital_index = self._num_total_features
 		self._num_total_features += 1
 
 	def define_is_number_feature_index(self):
-		self._number_index = self._curr_index
-		self._curr_index += 1
+		self._number_index = self._num_total_features
 		self._num_total_features += 1
 
 	def create_history_dict(self):
@@ -391,6 +343,9 @@ class feature_builder():
 		if curr_word.isupper():
 			features.append(self._all_capital_letters_index)
 
+		if bool(re.search('^(Ltd|Ltd.|S.A.|SA|A.G.|AG|N.V.|NV|Ltee|B.V|BV|GmbH|L.L.C|LLC|SIA|Sia|Inc.|Inc|Corp.|Corp|Pte.)$',curr_word)):
+			features.append(self._company_feature_index)
+
 		try:
 			float(curr_word)
 			if curr_tag == 'CD':
@@ -398,8 +353,8 @@ class feature_builder():
 		except ValueError:
 			pass
 
-		if curr_word == 'to' and curr_tag == 'TO':
-			features.append(self._TO_index)
+		if bool(re.search('^(Mr.|Mrs.|Ms.|Miss|Madam|Aunt|Uncle|Dr.|Prof.|Doc.)$',curr_word)):
+			features.append(self._title_index)
 
 		if (((curr_word[-3:len(curr_word)] in ['ial', 'ian', 'ary', 'ive', 'ish', 'ous', 'ose', 'ant', 'ent', 'ile']) or
 			 (curr_word[-2:len(curr_word)] in ['al', 'an', 'ic']) or (

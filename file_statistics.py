@@ -2,6 +2,10 @@ class file_statistics():
 
 	def __init__(self,file_path):
 		self.file_path = file_path
+		self.initiallize_variables()
+		self.calc_statistics()
+
+	def initiallize_variables(self):
 		self.num_total_features = 0  # Total number of features accumulated
 		self.num_words = 0
 		self.pos_tags = {}
@@ -18,6 +22,7 @@ class file_statistics():
 		self.next_word_tags_count_dict = {}
 		self.prev_word_tags_count_dict = {}
 
+	def calc_statistics(self):
 		self.calc_unigram_statistics()
 		self.calc_unigram_suffix_statistics()
 		self.calc_unigram_prefix_statistics()
